@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>カレンダー</title>
+  <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css' rel='stylesheet' />
+  <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+</head>
+<body>
+  <h1>予定カレンダー</h1>
+  <div id='calendar'></div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const calendarEl = document.getElementById("calendar");
+
+      const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: "dayGridMonth",
+        locale: "ja",
+        headerToolbar: {
+          left: "prev,next today",
+          center: "title",
+          right: "dayGridMonth,timeGridWeek,timeGridDay"
+        },
+        events: "/api/events",
+
+        // 日付クリックで予定登録
+        dateClick: function(info) {
+          const title = prompt("予定タイトルを入力してください:");
+          if (title) {
+            fetch("/api/add_event", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                title: title,
+                start: info.dateStr,
+                end: info.dateStr
+              })
+            })
+            .then(response => response.json())
+            .then(data => {
+              calendar.refetchEvents(); // 予定を再読み込みして画面に反映
+            });
+          }
+        }
+      });
+
+      calendar.render();
+    });
+  </script>
+</body>
+</html>

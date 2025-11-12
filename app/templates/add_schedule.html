@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>予定を追加</title>
+</head>
+<body>
+    <h1>予定を追加</h1>
+
+    <form method="POST">
+        {{ form.hidden_tag() }}
+
+        <p>
+            {{ form.title.label }}<br>
+            {{ form.title(size=40) }}
+        </p>
+
+        <p>
+            {{ form.start_time.label }}<br>
+            {{ form.start_time() }}
+            <small>例: 2025-11-12 10:00</small>
+        </p>
+
+        <p>
+            {{ form.end_time.label }}<br>
+            {{ form.end_time() }}
+            <small>例: 2025-11-12 11:00</small>
+        </p>
+
+        <p>{{ form.submit() }}</p>
+    </form>
+
+    <p><a href="{{ url_for('main.calendar') }}">カレンダーに戻る</a></p>
+</body>
+</html>
