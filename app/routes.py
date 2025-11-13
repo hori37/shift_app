@@ -29,13 +29,14 @@ def api_events(): #スケジュール一覧をJSON形式で返すAPI
     events = []
     for s in schedules:
         events.append({
+            "id": s.id, 
             "title": s.title,
             "start": s.start_time.isoformat(), #日時を"2025-11-12T14:00:00"のような形式に変換(JavaScriptなどで扱いやすくなる)
             "end": s.end_time.isoformat()
         })
     return jsonify(events) #pythonのリストをJSONに変換
 
-@main.route("/api/add_event", methods=["POST"])
+@main.route("/api/add_event", methods=["POST"]) #新規登録
 def add_event():
     data = request.get_json()
 
@@ -66,3 +67,26 @@ def add_schedule(): #予定追加
         flash("予定を登録しました！") #テンプレート側で{{ get_flashed_messages() }}で表示
         return redirect(url_for("main.calendar"))
     return render_template("add_schedule.html", form=form) #フォームが送信されていない場合(GET),予定追加ページを表示
+
+@main.route("/api/update_event", methods=["POST"])
+def update_event():
+    data = request.get_json()
+    event = Schedule.query.get(data["id"])
+    if event:
+        event.title = data["title"]
+        event.start_time = datetime.fromisoformat(data["start"])
+        event.end_time = datetime.fromisoformat(data["end"])
+        db.session.commit()
+    return jsonify({"status": "updated"})
+
+@main.route("/api/delete_event", methods=["POST"])
+def delete_event():
+    data = request.get_json()
+    print("受け取ったID:", data["id"])
+    event = Schedule.query.get(data["id"])
+    if event:
+        db.session.delete(event)
+        db.session.commit()
+        return jsonify({"status": "deleted"})
+    else:
+        return jsonify({"status": "not found"}), 404

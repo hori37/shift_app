@@ -5,50 +5,176 @@
   <title>カレンダー</title>
   <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css' rel='stylesheet' />
   <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+
+  <!-- Bootstrapは、HTML・CSS・JavaScriptで構成されたフレームワーク -->
+  <!-- Bootstrap 見た目を整えるCSS-->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap モーダルなどを動かすJS（モーダルは、画面全体に重ねて表示されるポップアップウィンドウ）-->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <style>
+  body {
+    color: black;
+  }
+  #calendar {
+    color: black;
+  }
+
+  /* カレンダーのヘッダー（年月タイトル） */
+  .fc-toolbar-title {
+    color: black !important;
+  }
+
+  /* 曜日（Sun, Mon, ...） */
+  .fc-col-header-cell-cushion {
+    color: black !important;
+  }
+
+  /* 日付の数字（1, 2, 3...） */
+  .fc-daygrid-day-number {
+    color: black !important;
+  }
+
+  /* 予定のタイトル */
+  .fc-event-title {
+    color: black !important;
+  }
+
+  /* 予定の背景色（必要なら） */
+  .fc-event {
+    background-color: white !important;
+    border-color: black !important;
+    color: black !important;
+  }
+</style>
+
 </head>
 <body>
-  <h1>予定カレンダー</h1>
+  <h1>Calendar</h1>
   <div id='calendar'></div>
 
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const calendarEl = document.getElementById("calendar");
+<!-- モーダルフォーム（予定入力用） -->
+<div class="modal fade" id="eventModal" tabindex="-1" aria-labelledby="eventModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <!-- モーダルのヘッダー -->
+      <div class="modal-header">
+        <h5 class="modal-title" id="eventModalLabel">予定を登録</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
 
-      const calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: "dayGridMonth",
-        locale: "ja",
-        headerToolbar: {
-          left: "prev,next today",
-          center: "title",
-          right: "dayGridMonth,timeGridWeek,timeGridDay"
-        },
-        events: "/api/events",
+      <!-- モーダルの本文（フォーム） -->
+      <div class="modal-body">
+        <form id="eventForm">
+          <input type="hidden" id="eventId">
 
-        // 日付クリックで予定登録
-        dateClick: function(info) {
-          const title = prompt("予定タイトルを入力してください:");
-          if (title) {
-            fetch("/api/add_event", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({
-                title: title,
-                start: info.dateStr,
-                end: info.dateStr
-              })
-            })
-            .then(response => response.json())
-            .then(data => {
-              calendar.refetchEvents(); // 予定を再読み込みして画面に反映
-            });
-          }
-        }
+         <div class="mb-3">
+           <label for="eventTitle" class="form-label">タイトル</label>
+           <input type="text" class="form-control" id="eventTitle" required>
+          </div>
+          <div class="mb-3">
+           <label for="eventStart" class="form-label">開始時間</label>
+           <input type="datetime-local" class="form-control" id="eventStart" required>
+         </div>
+          <div class="mb-3">
+           <label for="eventEnd" class="form-label">終了時間</label>
+            <input type="datetime-local" class="form-control" id="eventEnd" required>
+          </div>
+        </form>
+      </div>
+
+      <!-- モーダルのフッター（ボタン） -->
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-danger" id="deleteEvent">削除</button>
+        <button type="button" class="btn btn-primary" id="saveEvent">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const calendarEl = document.getElementById("calendar");
+
+  const calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: "dayGridMonth",
+    locale: "ja",
+    headerToolbar: {
+      left: "prev,next today",
+      center: "title",
+      right: "dayGridMonth,timeGridWeek,timeGridDay"
+    },
+    events: "/api/events",
+
+    eventClick: function(info) {
+      const event = info.event;
+      document.getElementById("eventId").value = event.id;
+      document.getElementById("eventTitle").value = event.title;
+      document.getElementById("eventStart").value = event.start.toISOString().slice(0, 16);
+      document.getElementById("eventEnd").value = event.end ? event.end.toISOString().slice(0, 16) : "";
+      const modal = new bootstrap.Modal(document.getElementById("eventModal"));
+      modal.show();
+    },
+
+    dateClick: function(info) {
+      document.getElementById("eventTitle").value = "";
+      document.getElementById("eventStart").value = info.dateStr + "T09:00";
+      document.getElementById("eventEnd").value = info.dateStr + "T10:00";
+      document.getElementById("eventId").value = "";
+      const modal = new bootstrap.Modal(document.getElementById("eventModal"));
+      modal.show();
+    }
+  });
+
+  calendar.render();
+
+  document.getElementById("saveEvent").addEventListener("click", function () {
+    const id = document.getElementById("eventId").value;
+    const title = document.getElementById("eventTitle").value;
+    const start = document.getElementById("eventStart").value;
+    const end = document.getElementById("eventEnd").value;
+
+    if (title && start && end) {
+      const url = id ? "/api/update_event" : "/api/add_event";
+      fetch(url, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({id: id, title: title, start: start, end: end})
+      })
+      .then(response => response.json())
+      .then(data => {
+        calendar.refetchEvents();
+        const modal = bootstrap.Modal.getInstance(document.getElementById("eventModal"));
+        modal.hide();
       });
+    }
+  });
 
-      calendar.render();
-    });
-  </script>
+  document.getElementById("deleteEvent").addEventListener("click", function () {
+    const id = document.getElementById("eventId").value;
+    console.log("削除対象ID:", id);
+    if (id) {
+      fetch("/api/delete_event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      })
+      .then(response => response.json())
+      .then(data => {
+        calendar.refetchEvents();
+        const modal = bootstrap.Modal.getInstance(document.getElementById("eventModal"));
+        modal.hide();
+      })
+      .catch(error => {
+        console.error("削除エラー:", error);
+        alert("削除に失敗しました。サーバー側のURLやIDを確認してください。");
+      });
+    } else {
+      alert("削除対象のIDがありません。");
+    }
+  });
+});
+</script>
 </body>
 </html>
