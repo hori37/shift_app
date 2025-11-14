@@ -151,6 +151,26 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
+  // 勤務区分を選んだら、時間とタイトルを自動入力
+document.getElementById("shiftType").addEventListener("change", function () {
+  const type = this.value;
+  const date = document.getElementById("eventStart").value.slice(0, 10);
+
+  if (type === "早番") {
+    document.getElementById("eventStart").value = date + "T09:00";
+    document.getElementById("eventEnd").value = date + "T17:00";
+  } else if (type === "遅番") {
+    document.getElementById("eventStart").value = date + "T13:00";
+    document.getElementById("eventEnd").value = date + "T21:00";
+  } else if (type === "夜勤") {
+    document.getElementById("eventStart").value = date + "T22:00";
+    document.getElementById("eventEnd").value = date + "T06:00";
+  }
+
+  // タイトルにも勤務区分を反映
+  document.getElementById("eventTitle").value = type;
+});
+
   document.getElementById("deleteEvent").addEventListener("click", function () {
     const id = document.getElementById("eventId").value;
     console.log("削除対象ID:", id);
@@ -175,6 +195,83 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 });
+</script>
+<!-- シフト登録モーダル -->
+<div id="shiftModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h4>シフト登録</h4>
+
+    <!-- 勤務区分の選択 -->
+    <label for="shiftType">勤務区分</label>
+    <select id="shiftType" class="form-control">
+      <option value="早番">早番</option>
+      <option value="遅番">遅番</option>
+      <option value="夜勤">夜勤</option>
+    </select>
+
+    <!-- 開始・終了時間（自動入力される） -->
+    <label for="eventStart">開始時間</label>
+    <input type="datetime-local" id="eventStart" class="form-control">
+
+    <label for="eventEnd">終了時間</label>
+    <input type="datetime-local" id="eventEnd" class="form-control">
+
+    <!-- 保存ボタン -->
+    <button id="saveBtn">保存</button>
+  </div>
+</div>
+<script>
+  // 勤務区分を選んだときに時間を自動入力
+  document.getElementById("shiftType").addEventListener("change", function () {
+    const type = this.value;
+    const date = document.getElementById("eventStart").value.slice(0, 10);
+
+    if (type === "早番") {
+      document.getElementById("eventStart").value = date + "T09:00";
+      document.getElementById("eventEnd").value = date + "T17:00";
+    } else if (type === "遅番") {
+      document.getElementById("eventStart").value = date + "T13:00";
+      document.getElementById("eventEnd").value = date + "T21:00";
+    } else if (type === "夜勤") {
+      document.getElementById("eventStart").value = date + "T22:00";
+      document.getElementById("eventEnd").value = date + "T06:00";
+    }
+  });
+
+  // 保存ボタンを押したときの処理
+  document.getElementById("saveBtn").addEventListener("click", function () {
+    const title = document.getElementById("shiftType").value;
+    const start = document.getElementById("eventStart").value;
+    const end = document.getElementById("eventEnd").value;
+
+    fetch("/api/add_event", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ title, start, end })
+    })
+    .then(response => response.json())
+    .then(data => {
+      calendar.refetchEvents(); // カレンダー更新
+
+      // 次の日に切り替え
+      const currentStart = new Date(start);
+      const nextDate = new Date(currentStart);
+      nextDate.setDate(currentStart.getDate() + 1);
+      const nextDateStr = nextDate.toISOString().slice(0, 10);
+      const shiftType = document.getElementById("shiftType").value;
+
+      if (shiftType === "早番") {
+        document.getElementById("eventStart").value = nextDateStr + "T09:00";
+        document.getElementById("eventEnd").value = nextDateStr + "T17:00";
+      } else if (shiftType === "遅番") {
+        document.getElementById("eventStart").value = nextDateStr + "T13:00";
+        document.getElementById("eventEnd").value = nextDateStr + "T21:00";
+      } else if (shiftType === "夜勤") {
+        document.getElementById("eventStart").value = nextDateStr + "T22:00";
+        document.getElementById("eventEnd").value = nextDateStr + "T06:00";
+      }
+    });
+  });
 </script>
 </body>
 </html>
