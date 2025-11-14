@@ -18,3 +18,4 @@ class Schedule(db.Model):
     title = db.Column(db.String(100))             #予定の名前（病院、買い物）
     start_time = db.Column(db.DateTime)           #開始時間
     end_time = db.Column(db.DateTime)             #終了時間
+    all_day = db.Column(db.Boolean, default=False)

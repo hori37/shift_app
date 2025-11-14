@@ -4,6 +4,10 @@ from .models import Schedule
 from . import db
 from .forms import ScheduleForm
 from datetime import datetime
+from flask import Flask
+import requests
+
+
 
 
 
@@ -24,7 +28,9 @@ def calendar():
     return render_template("calendar.html")
 
 @main.route("/api/events")
-def api_events(): #スケジュール一覧をJSON形式で返すAPI 
+def api_events(): #スケジュール一覧をJSON形式で返すAPI
+    db.session.commit()  # 明示的にコミット(保存直後の反映を確実にするために、強制的にコミット後に再取得)
+
     schedules = Schedule.query.all() #データベースのScheduleテーブルから全レコードを取得
     events = []
     for s in schedules:
@@ -32,7 +38,8 @@ def api_events(): #スケジュール一覧をJSON形式で返すAPI
             "id": s.id, 
             "title": s.title,
             "start": s.start_time.isoformat(), #日時を"2025-11-12T14:00:00"のような形式に変換(JavaScriptなどで扱いやすくなる)
-            "end": s.end_time.isoformat()
+            "end": s.end_time.isoformat(),
+            "allDay": s.all_day
         })
     return jsonify(events) #pythonのリストをJSONに変換
 
@@ -44,10 +51,13 @@ def add_event():
     start = datetime.fromisoformat(data["start"])
     end = datetime.fromisoformat(data["end"])
 
+    all_day = data.get("allDay", False)
+
     new_schedule = Schedule(
         title=data["title"],
         start_time=start,
-        end_time=end
+        end_time=end,
+        all_day=all_day
     )
     db.session.add(new_schedule)
     db.session.commit()
@@ -76,6 +86,7 @@ def update_event():
         event.title = data["title"]
         event.start_time = datetime.fromisoformat(data["start"])
         event.end_time = datetime.fromisoformat(data["end"])
+        event.all_day = data.get("allDay", False)
         db.session.commit()
     return jsonify({"status": "updated"})
 
@@ -90,3 +101,26 @@ def delete_event():
         return jsonify({"status": "deleted"})
     else:
         return jsonify({"status": "not found"}), 404
+    
+@main.route("/api/holidays")
+def get_holidays():
+    try:
+        start = request.args.get("start")
+        end = request.args.get("end")
+
+        res = requests.get("https://holidays-jp.github.io/api/v1/date.json")
+        data = res.json()
+
+        events = []
+        for date in data.keys():
+            events.append({
+                "start": date,
+                "end": date,
+                "display": "background",
+                "color": "#ffecec"
+            })
+
+        return jsonify(events)
+    except Exception as e:
+        print("祝日取得エラー:", e)
+        return jsonify([]), 500
