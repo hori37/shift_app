@@ -2,9 +2,14 @@
 # Flask本体とSQLAlchemy（DB操作ライブラリ）を読み込む
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+
 
 # データベース操作用の変数（グローバルに使えるようにする）
 db = SQLAlchemy()
+
+migrate = None
+
 
 # Flaskアプリを作成する関数（run.pyから呼び出される）
 def create_app():
@@ -16,6 +21,9 @@ def create_app():
 
     # アプリにデータベース機能を追加
     db.init_app(app)
+
+    global migrate
+    migrate = Migrate(app, db)
 
     # ルーティング（URLと画面の動き）を読み込む
     from .routes import main

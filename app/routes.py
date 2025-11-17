@@ -15,6 +15,17 @@ import requests
 # このファイル専用のルーティンググループ(「main」という名前のBlueprint（機能のまとまり）)を作成
 main = Blueprint("main", __name__)
 
+#色を決める
+def get_shift_color(title):
+    if title == "日勤":
+        return "#F0F4C3"
+    elif title == "夜勤":
+        return "#81D4FA"
+    elif title == "当直":
+        return "#FFCDD2"
+    else:
+        return "#9E9E9E"  # グレー（予定など）
+
 # "/" にアクセスされたときの処理（トップページ）
 # ルーティングはURLとFlaskの処理を対応づけることで、URLと関数を紐付ける
 # Flaskでルーティングを記述するには、route()
@@ -27,21 +38,50 @@ def index(): #templates/index.htmlを表示する
 def calendar():
     return render_template("calendar.html")
 
-@main.route("/api/events")
+def get_shift_class(title):
+    if title == "日勤":
+        return "shift-day"
+    elif title == "夜勤":
+        return "shift-night"
+    elif title == "当直":
+        return "shift-duty"
+    else:
+        return "normal-event"
+
+@main.route("/api/events", methods=["GET", "POST"])
 def api_events(): #スケジュール一覧をJSON形式で返すAPI
     db.session.commit()  # 明示的にコミット(保存直後の反映を確実にするために、強制的にコミット後に再取得)
+    if request.method == "GET":
 
-    schedules = Schedule.query.all() #データベースのScheduleテーブルから全レコードを取得
-    events = []
-    for s in schedules:
-        events.append({
-            "id": s.id, 
+        schedules = Schedule.query.all() #データベースのScheduleテーブルから全レコードを取得
+        events = [{
+            "id": s.id,
             "title": s.title,
             "start": s.start_time.isoformat(), #日時を"2025-11-12T14:00:00"のような形式に変換(JavaScriptなどで扱いやすくなる)
             "end": s.end_time.isoformat(),
-            "allDay": s.all_day
-        })
-    return jsonify(events) #pythonのリストをJSONに変換
+            "allDay": s.all_day,
+            "className": get_shift_class(s.title)
+        } for s in schedules]
+        return jsonify(events) #pythonのリストをJSONに変換
+
+    elif request.method == "POST":
+        # 新規登録処理
+        data = request.get_json()
+        print("POST受信:", data)
+        start = datetime.fromisoformat(data["start"])
+        end = datetime.fromisoformat(data["end"])
+        all_day = data.get("allDay", False)
+
+        new_schedule = Schedule(
+            title=data["title"],
+            start_time=start,
+            end_time=end,
+            all_day=all_day
+        )
+        db.session.add(new_schedule)
+        db.session.commit()
+        return jsonify({"status": "success"})
+
 
 @main.route("/api/add_event", methods=["POST"]) #新規登録
 def add_event():

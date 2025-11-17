@@ -40,15 +40,14 @@
     color: black !important;
   }
 
-  /* 予定の背景色 */
-  .fc-event {
-    background-color: white !important;
-    border-color: black !important;
-    color: black !important;
-  }
+  .fc-event.normal-event {
+  background-color: white;
+  border-color: black;
+  color: black;
+}
 
   /* 日曜の背景色 */
-  .fc-day.sunday {
+  .fc-day.sunday,.fc-day.holiday {
   background-color: #ffecec;
   }
 
@@ -56,6 +55,29 @@
   .fc-day.saturday {
   background-color: #e6f0ff;
   }
+
+ /* シフト共通：背景色と文字色は維持、枠線なし */
+.fc-event.shift-day {
+  background-color: #F9FBE7; /* やさしい黄緑背景 */
+  color: #558B2F;            /* 深い緑文字 */
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.fc-event.shift-night {
+  background-color: #E1F5FE; /* やさしい水色背景 */
+  color: #0277BD;            /* 青文字 */
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.fc-event.shift-duty {
+  background-color: #FFEBEE; /* やさしいピンク背景 */
+  color: #C62828;            /* 赤文字 */
+  border-radius: 4px;
+  font-weight: bold;
+}
+
 </style>
 
 </head>
@@ -78,20 +100,24 @@
         <form id="eventForm">
           <input type="hidden" id="eventId">
 
-          <!-- モード切り替えボタン -->
-          <div class="btn-group mb-3" role="group">
-            <button type="button" class="btn btn-outline-primary" id="modeSchedule">予定登録</button>
+          <!-- モード切り替えタブ -->
+          <div class="btn-group w-100 mb-3" role="group">
+            <button type="button" class="btn btn-outline-primary active" id="modeSchedule">予定登録</button>
             <button type="button" class="btn btn-outline-success" id="modeShift">シフト登録</button>
           </div>
 
-          <!-- 勤務区分ボタン（シフト登録モードで表示） -->
-          <div id="shiftButtons" class="d-flex gap-2 mb-3" style="display:none;">
-            <button type="button" class="btn btn-sm btn-outline-info" data-shift="日勤">日勤</button>
-            <button type="button" class="btn btn-sm btn-outline-warning" data-shift="夜勤">夜勤</button>
-            <button type="button" class="btn btn-sm btn-outline-danger" data-shift="当直">当直</button>
+          <!-- 選択日表示（シフト登録モードで表示） -->
+          <div id="selectedDateLabel" class="mb-3" style="display:none;">
+            <strong>選択日：</strong> <span id="selectedDateText"></span>
           </div>
 
-          <!-- タイトルと時間入力 -->
+          <div id="shiftButtons" style="display: none;">
+            <button data-shift="日勤">日勤</button>
+            <button data-shift="夜勤">夜勤</button>
+            <button data-shift="当直">当直</button>
+          </div>
+
+          <!-- タイトルと時間入力（シフト登録モードで表示） -->
          <div class="mb-3">
            <label for="eventTitle" class="form-label">タイトル</label>
            <input type="text" class="form-control" id="eventTitle" required>
@@ -130,16 +156,13 @@ document.addEventListener("DOMContentLoaded", function () {
       right: "dayGridMonth,timeGridWeek,timeGridDay"
     },
     eventSources: [
-    {
-      url: "/api/events", // 通常の予定
-    },
-    {
-      url: "/api/holidays", // 祝日背景
-      display: "background",
-      color: "#ffecec", // 薄い赤
-      overlap: false
-    }
+    {url: "/api/events"},
+    {url: "/api/holidays"}
     ],
+    eventClassNames: function(arg) {
+    return arg.event.classNames;
+  },
+
 
     dayCellClassNames: function(arg) {
       const day = arg.date.getDay();
@@ -159,10 +182,18 @@ document.addEventListener("DOMContentLoaded", function () {
     },
 
     dateClick: function(info) {
+      const dateStr = info.dateStr;
       document.getElementById("eventTitle").value = "";
       document.getElementById("eventStart").value = info.dateStr + "T09:00";
       document.getElementById("eventEnd").value = info.dateStr + "T10:00";
       document.getElementById("eventId").value = "";
+
+      // 日付表示用ラベルにセット
+      document.getElementById("selectedDateText").textContent = dateStr;
+
+      // 初期モードは予定登録
+      document.getElementById("modeShift").click();
+
       const modal = new bootstrap.Modal(document.getElementById("eventModal"));
       modal.show();
     }
@@ -170,26 +201,103 @@ document.addEventListener("DOMContentLoaded", function () {
 
   calendar.render();
 
-   // 勤務ボタンクリックの処理（時間もセット）
-document.querySelectorAll("#shiftButtons button").forEach(button => {
+  function getShiftClass(shift) {
+    if (shift === "日勤") return "shift-day";
+    if (shift === "夜勤") return "shift-night";
+    if (shift === "当直") return "shift-duty";
+    return "normal-event";
+  }
+
+  // DOM要素の取得（モーダル切り替えロジックを追加）
+  const modeScheduleBtn = document.getElementById("modeSchedule");
+  const modeShiftBtn = document.getElementById("modeShift");
+  const titleGroup = document.getElementById("eventTitle").parentElement;
+  const startGroup = document.getElementById("eventStart").parentElement;
+  const endGroup = document.getElementById("eventEnd").parentElement;
+  const saveBtn = document.getElementById("saveEvent");
+  const modalTitle = document.getElementById("eventModalLabel");
+  const selectedDateLabel = document.getElementById("selectedDateLabel");
+  const selectedDateText = document.getElementById("selectedDateText");
+  const shiftButtons = document.getElementById("shiftButtons");
+
+  const scheduleInputs = document.createElement("div");
+  scheduleInputs.id = "scheduleInputs";
+  titleGroup.before(scheduleInputs);
+  scheduleInputs.appendChild(titleGroup);
+  scheduleInputs.appendChild(startGroup);
+  scheduleInputs.appendChild(endGroup);
+
+  // モード切り替え
+  modeScheduleBtn.addEventListener("click", () => {
+    modeScheduleBtn.classList.add("active");
+    modeShiftBtn.classList.remove("active");
+    modalTitle.textContent = "予定を登録";
+    scheduleInputs.style.display = "block";
+    saveBtn.style.display = "inline-block";
+    selectedDateLabel.style.display = "none";
+    shiftButtons.style.display = "none"; // 予定登録モードで非表示
+  });
+
+  modeShiftBtn.addEventListener("click", () => {
+    modeShiftBtn.classList.add("active");
+    modeScheduleBtn.classList.remove("active");
+    modalTitle.textContent = "シフトを登録";
+    scheduleInputs.style.display = "none";
+    saveBtn.style.display = "none";
+    selectedDateLabel.style.display = "block";
+    shiftButtons.style.display = "flex"; // シフト登録モードで表示
+
+  });
+
+  document.querySelectorAll("#shiftButtons button").forEach(button => {
   button.addEventListener("click", function () {
     const shift = this.getAttribute("data-shift");
-    document.getElementById("eventTitle").value = shift;
-
     const startInput = document.getElementById("eventStart");
     const endInput = document.getElementById("eventEnd");
     const dateStr = startInput.value.slice(0, 10); // "YYYY-MM-DD"
 
+    let start = "", end = "";
     if (shift === "日勤") {
-      startInput.value = dateStr + "T08:00";
-      endInput.value = dateStr + "T17:00";
+      start = dateStr + "T08:00";
+      end = dateStr + "T17:00";
     } else if (shift === "夜勤") {
-      startInput.value = dateStr + "T16:00";
-      endInput.value = dateStr + "T23:59"; // 同じ日で見た目だけ夜勤
+      start = dateStr + "T16:00";
+      end = dateStr + "T23:59";
     } else if (shift === "当直") {
-      startInput.value = dateStr + "T22:00";
-      endInput.value = dateStr + "T23:59"; // 同じ日で見た目だけ当直
+      start = dateStr + "T22:00";
+      end = dateStr + "T23:59";
     }
+
+    // 即保存処理
+    fetch("/api/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: shift,
+        start: start,
+        end: end,
+        allDay: false,
+      })
+    }).then(response => {
+      if (!response.ok) {
+        alert("保存に失敗しました");
+        return;
+      }
+
+      calendar.refetchEvents();
+
+
+      // 次の日に切り替え
+      const nextDate = new Date(dateStr);
+      nextDate.setDate(nextDate.getDate() + 1);
+      const nextDateStr = nextDate.toISOString().slice(0, 10);
+
+      startInput.value = nextDateStr + "T09:00";
+      endInput.value = nextDateStr + "T10:00";
+      document.getElementById("eventTitle").value = "";
+      document.getElementById("eventId").value = "";
+      document.getElementById("selectedDateText").textContent = nextDateStr;
+    });
   });
 });
 
@@ -197,48 +305,34 @@ document.querySelectorAll("#shiftButtons button").forEach(button => {
   // モード切り替え用フラグ
   let isShiftMode = false;
 
-  // モード切り替えボタンの処理
-  document.getElementById("modeSchedule").addEventListener("click", () => {
-    isShiftMode = false;
-    document.getElementById("shiftButtons").style.display = "none";
-    document.getElementById("eventTitle").readOnly = false;
-  });
+  document.getElementById("saveEvent").addEventListener("click", function () {
+    const id = document.getElementById("eventId").value;
+    const title = document.getElementById("eventTitle").value;
+    const start = document.getElementById("eventStart").value;
+    const end = document.getElementById("eventEnd").value;
 
-  document.getElementById("modeShift").addEventListener("click", () => {
-    isShiftMode = true;
-    document.getElementById("shiftButtons").style.display = "flex";
-    document.getElementById("eventTitle").readOnly = true;
-  });
+    console.log("保存クリック:", { id, title, start, end });
 
-document.getElementById("saveEvent").addEventListener("click", function () {
-  const id = document.getElementById("eventId").value;
-  const title = document.getElementById("eventTitle").value;
-  const start = document.getElementById("eventStart").value;
-  const end = document.getElementById("eventEnd").value;
+    if (title && start && end) {
+      const url = id ? "/api/update_event" : "/api/add_event";
 
-  console.log("保存クリック:", { id, title, start, end });
+      const allDay = isShiftMode; // シフトモードなら true、予定モードなら false
 
-  if (title && start && end) {
-    const url = id ? "/api/update_event" : "/api/add_event";
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, title, start, end, allDay })
+      })
+      .then(response => response.json())
+      .then(data => {
+        console.log("保存成功:", data);
+        calendar.refetchEvents();
 
-    const allDay = isShiftMode; // シフトモードなら true、予定モードなら false
-
-    fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, title, start, end, allDay })
-    })
-    .then(response => response.json())
-    .then(data => {
-      console.log("保存成功:", data);
-      calendar.setOption("events", "/api/events?" + new Date().getTime());
-      calendar.refetchEvents();
-
-      if (isShiftMode) {
-        const currentStart = new Date(start);
-        const nextDate = new Date(currentStart);
-        nextDate.setDate(currentStart.getDate() + 1);
-        const nextDateStr = nextDate.toISOString().slice(0, 10);
+        if (isShiftMode) {
+          const currentStart = new Date(start);
+          const nextDate = new Date(currentStart);
+          nextDate.setDate(currentStart.getDate() + 1);
+          const nextDateStr = nextDate.toISOString().slice(0, 10);
 
         if (title === "日勤") {
           document.getElementById("eventStart").value = nextDateStr + "T08:00";
