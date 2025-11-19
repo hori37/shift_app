@@ -7,6 +7,16 @@ from routes import main  # ← routes.py に main = Blueprint(...) がある前�
 # SQLAlchemy（DB操作ライブラリ）を読み込む
 from models import db  # ← models.py に db = SQLAlchemy() がある前提
 
+from flask_login import LoginManager
+
+login_manager = LoginManager()
+login_manager.init_app(app)  # Flaskアプリにログイン管理を組み込む
+
+# ユーザーIDからユーザー情報を取得する関数
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
 # Flaskアプリケーションを作成
 app = Flask(__name__)
 

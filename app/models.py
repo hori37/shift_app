@@ -1,5 +1,22 @@
-# __init__.py で作った db（SQLAlchemyのインスタンス）を読み込む
-from . import db
+from flask_login import UserMixin
+from werkzeug.security import generate_password_hash, check_password_hash
+from app import db  # __init__.py で作ったDB
+
+
+# ユーザーモデル（ログイン用）
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)  # ユーザーID
+    username = db.Column(db.String(64), unique=True, nullable=False)  # ユーザー名
+    password_hash = db.Column(db.String(128), nullable=False)  # パスワード（ハッシュ化）
+
+    # パスワードを保存するときにハッシュ化する関数
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    # パスワードが正しいか確認する関数
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
 
 #シフトを保存するテーブルの定義
 class Shift(db.Model):
@@ -19,3 +36,5 @@ class Schedule(db.Model):
     start_time = db.Column(db.DateTime)           #開始時間
     end_time = db.Column(db.DateTime)             #終了時間
     all_day = db.Column(db.Boolean, default=False)
+    note = db.Column(db.Text)         #メモ欄
+    color = db.Column(db.String(20))  # 色指定

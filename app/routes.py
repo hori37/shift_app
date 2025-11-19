@@ -1,19 +1,39 @@
 # Blueprint（アプリケーションを分割するためのFlaskの拡張機能）とHTML表示用の関数,JSONレスポンス生成,HTTPリクエスト情報の取得,URLリダイレクト,関数名からURL生成,一時メッセージ表示のための仕組みを読み込む
 from flask import Blueprint, render_template, jsonify,request, redirect, url_for, flash
 from .models import Schedule
-from . import db
+from app import db
 from .forms import ScheduleForm
 from datetime import datetime
 from flask import Flask
 import requests
-
-
-
+from flask_login import login_user, logout_user, login_required, current_user
+from app.models import User
 
 
 
 # このファイル専用のルーティンググループ(「main」という名前のBlueprint（機能のまとまり）)を作成
 main = Blueprint("main", __name__)
+
+@main.route("/", methods=["GET", "POST"])
+def index(): #templates/index.htmlを表示する
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+        user = User.query.filter_by(username=username).first()
+
+        # ユーザーが存在し、パスワードが正しいか確認
+        if user and user.check_password(password):
+            login_user(user)  # ログイン成功
+            return redirect(url_for("main.calendar"))
+        else:
+            flash("ユーザー名またはパスワードが違います")
+
+    return render_template("index.html")  # ログインフォームを表示
+
+@main.route("/calendar")
+@login_required
+def calendar():
+    return render_template("calendar.html")
 
 #色を決める
 def get_shift_color(title):
@@ -30,13 +50,7 @@ def get_shift_color(title):
 # ルーティングはURLとFlaskの処理を対応づけることで、URLと関数を紐付ける
 # Flaskでルーティングを記述するには、route()
 # render_template関数を使いhtmlファイルを表示させ、htmlファイルに簡単に値を入れる
-@main.route("/")
-def index(): #templates/index.htmlを表示する
-    return render_template("index.html")
 
-@main.route("/calendar")
-def calendar():
-    return render_template("calendar.html")
 
 def get_shift_class(title):
     if title == "日勤":
@@ -60,7 +74,9 @@ def api_events(): #スケジュール一覧をJSON形式で返すAPI
             "start": s.start_time.isoformat(), #日時を"2025-11-12T14:00:00"のような形式に変換(JavaScriptなどで扱いやすくなる)
             "end": s.end_time.isoformat(),
             "allDay": s.all_day,
-            "className": get_shift_class(s.title)
+            "className": get_shift_class(s.title),
+            "note": s.note,
+            "color": s.color
         } for s in schedules]
         return jsonify(events) #pythonのリストをJSONに変換
 
@@ -76,7 +92,10 @@ def api_events(): #スケジュール一覧をJSON形式で返すAPI
             title=data["title"],
             start_time=start,
             end_time=end,
-            all_day=all_day
+            all_day=all_day,
+            note=data.get("note", ""),
+            color=data.get("color", "#66bb6a")
+
         )
         db.session.add(new_schedule)
         db.session.commit()
@@ -97,7 +116,10 @@ def add_event():
         title=data["title"],
         start_time=start,
         end_time=end,
-        all_day=all_day
+        all_day=all_day,
+        note=data.get("note", ""),
+        color=data.get("color", "#66bb6a")
+
     )
     db.session.add(new_schedule)
     db.session.commit()
@@ -127,6 +149,8 @@ def update_event():
         event.start_time = datetime.fromisoformat(data["start"])
         event.end_time = datetime.fromisoformat(data["end"])
         event.all_day = data.get("allDay", False)
+        event.note = data.get("note", "")
+        event.color = data.get("color", "#66bb6a")
         db.session.commit()
     return jsonify({"status": "updated"})
 
