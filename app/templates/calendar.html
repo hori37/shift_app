@@ -36,14 +36,15 @@
   }
 
   /* 予定タイトル */
-  .fc-event-title {
+  /* .fc-event-title {
     color: black !important;
-  }
+  } */
 
-  .fc-event.normal-event {
-  background-color: white;
+  .fc-event.normal-event,.fc-event.normal-event .fc-event-title,
+.fc-event.normal-event .fc-event-time {
+  background-color: #fff;
   border-color: black;
-  color: black;
+  color: #000;
 }
 
   /* 日曜の背景色 */
@@ -56,23 +57,40 @@
   background-color: #e6f0ff;
   }
 
+  .fc-timegrid-event.shift-day {
+  background-color: #4DB6AC !important;
+  color: #FFFFFF !important;
+}
+.fc-timegrid-event.shift-night {
+  background-color: #1E88E5 !important;
+  color: #FFFFFF !important;
+}
+.fc-timegrid-event.shift-duty {
+  background-color: #E57373 !important;
+  color: #FFFFFF !important;
+}
+
  /* シフト共通：背景色と文字色は維持、枠線なし */
-.fc-event.shift-day {
-  background-color: #F9FBE7; 
-  color: #558B2F;
+.fc-event.shift-day,.fc-event.shift-day .fc-event-title,
+.fc-event.shift-day .fc-event-time {
+  background-color: #4db6a4;  /* 濃いグリーン */
+  color: #FFFFFF !important;
   border-radius: 4px;
   font-weight: bold;
 }
 
-.fc-event.shift-night {
-  background-color: #E1F5FE; 
-  color: #0277BD;
+.fc-event.shift-night,.fc-event.shift-night .fc-event-title,
+.fc-event.shift-night .fc-event-time {
+  background-color: #1E88E5;  /* 濃いブルー */
+  color: #FFFFFF !important;
+  border-radius: 4px;
   font-weight: bold;
 }
 
-.fc-event.shift-duty {
-  background-color: #FFEBEE; 
-  color: #C62828;
+.fc-event.shift-duty,.fc-event.shift-duty .fc-event-title,
+.fc-event.shift-duty .fc-event-time {
+  background-color: #e57373;  /* 濃いレッド */
+  color: #FFFFFF !important;
   border-radius: 4px;
   font-weight: bold;
 }
@@ -125,11 +143,23 @@
   background-color: #e3f2fd;
   border-radius: 4px;
 }
+
+/* 追加した勤務ボタン */
+#customShiftButtons button {
+  margin: 0 8px;
+  padding: 10px 20px;
+  font-weight: bold;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  color: #FFFFFF !important;
+  background-color: #4DB6AC !important; /* デフォルト色、JSで上書きされる */
+}
+
 </style>
 
 </head>
-<body>
-  <h1>Calendar</h1>
+<body>  
   <div id='calendar'></div>
 
 <!-- モーダルフォーム（予定入力用） -->
@@ -142,6 +172,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
       </div>
 
+
       <!-- モーダルの本文（フォーム） -->
       <div class="modal-body">
         <form id="eventForm">
@@ -152,6 +183,7 @@
             <button type="button" class="btn btn-outline-primary active" id="modeSchedule">予定登録</button>
             <button type="button" class="btn btn-outline-success" id="modeShift">シフト登録</button>
           </div>
+
 
           <!-- 選択日表示（シフト登録モードで表示） -->
           <div id="selectedDateLabel" class="mb-3" style="display:none;">
@@ -184,6 +216,28 @@
           <div class="mb-3">
             <label for="eventColor" class="form-label">表示色</label>
             <input type="color" class="form-control form-control-color" id="eventColor" value="#66bb6a">
+          </div>
+
+          <!-- 勤務タイプ追加欄 -->
+          <div class="mb-3">
+            <label class="form-label">新しい勤務タイプを追加</label>
+            <div class="d-flex gap-2">
+              <input type="text" id="customShiftName" class="form-control" placeholder="勤務名">
+              <input type="color" id="customShiftColor" class="form-control form-control-color" value="#4DB6AC">
+              <button type="button" class="btn btn-outline-primary" id="addCustomShift">追加</button>
+            </div>
+          </div>
+
+          <!-- 追加された勤務タイプボタンを表示するエリア -->
+          <div id="customShiftButtons" class="mb-3 d-flex flex-wrap gap-2">
+            {% for shift in shift_types %}
+              <button type="button"
+                      class="btn"
+                      style="background-color: {{ shift.color }}; color: {{ shift.text_color }};"
+                      data-shift="{{ shift.name }}">
+                {{ shift.name }}
+              </button>
+            {% endfor %}
           </div>
         </form>
       </div>
@@ -272,6 +326,66 @@ document.addEventListener("DOMContentLoaded", function () {
   calendar.render();
 
   let selectedCell = null;
+
+  document.getElementById("addCustomShift").addEventListener("click", () => {
+    const name = document.getElementById("customShiftName").value.trim();
+    const color = document.getElementById("customShiftColor").value;
+
+    if (!name || !color) {
+      alert("勤務名と色を入力してください");
+      return;
+    }
+
+    fetch("/add_shift_type", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ name, color })
+    }).then(response => {
+      if (!response.ok) {
+        alert("追加に失敗しました");
+        return;
+      }
+       return response.json();
+      }).then(data => {
+      // 勤務タイプボタンを追加
+      const button = document.createElement("button");
+      button.textContent = data.name;
+      button.className = "btn";
+      button.style.setProperty("color", data.text_color, "important");
+      button.style.setProperty("background-color", data.color, "important");
+      button.setAttribute("data-shift", data.name);
+
+      // クリック時の登録処理
+      button.onclick = () => {
+        const dateStr = document.getElementById("eventStart").value.slice(0, 10);
+        const start = dateStr + "T09:00";
+        const end = dateStr + "T17:00";
+        const note = document.getElementById("eventNote").value;
+
+        fetch("/api/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: data.name,
+            start: start,
+            end: end,
+            allDay: false,
+            note: note,
+            color: data.color
+
+          })
+        }).then(() => {
+         calendar.refetchEvents();
+       });
+      };
+        // 表示エリアにボタン追加
+        document.getElementById("customShiftButtons").appendChild(button);
+
+        // 入力欄をクリア
+        document.getElementById("customShiftName").value = "";
+        document.getElementById("customShiftColor").value = "#4DB6AC";
+    });
+  });
 
   function getShiftClass(shift) {
     if (shift === "日勤") return "shift-day";
@@ -365,7 +479,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
       calendar.refetchEvents();
 
-
       // 次の日に切り替え
       const nextDate = new Date(dateStr);
       nextDate.setDate(nextDate.getDate() + 1);
@@ -379,8 +492,6 @@ document.addEventListener("DOMContentLoaded", function () {
       document.getElementById("eventNote").value = event.extendedProps.note || "";
     });
   });
-});
-
 
   // モード切り替え用フラグ
   let isShiftMode = false;
@@ -463,6 +574,7 @@ document.addEventListener("DOMContentLoaded", function () {
         alert("削除対象のIDがありません。");
       }
     });
+  });
 });
 </script>
 </body>

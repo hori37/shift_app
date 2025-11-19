@@ -38,3 +38,10 @@ class Schedule(db.Model):
     all_day = db.Column(db.Boolean, default=False)
     note = db.Column(db.Text)         #メモ欄
     color = db.Column(db.String(20))  # 色指定
+
+# 勤務タイプモデル（勤務名・色・文字色）
+class ShiftType(db.Model):
+    id = db.Column(db.Integer, primary_key=True)  # 一意のID
+    name = db.Column(db.String(50), unique=True, nullable=False)  # 勤務名
+    color = db.Column(db.String(20), nullable=False)  # 背景色
+    text_color = db.Column(db.String(20), nullable=False, default="#FFFFFF")  # 文字色

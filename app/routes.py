@@ -4,10 +4,12 @@ from .models import Schedule
 from app import db
 from .forms import ScheduleForm
 from datetime import datetime
-from flask import Flask
 import requests
-from flask_login import login_user, logout_user, login_required, current_user
+from flask_login import login_user, login_required, current_user
 from app.models import User
+from app.forms import LoginForm
+from .models import Schedule, ShiftType
+
 
 
 
@@ -16,10 +18,12 @@ main = Blueprint("main", __name__)
 
 @main.route("/", methods=["GET", "POST"])
 def index(): #templates/index.htmlを表示する
-    if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
+    form = LoginForm()
+    if form.validate_on_submit():
+        username = form.username.data
+        password = form.password.data
         user = User.query.filter_by(username=username).first()
+
 
         # ユーザーが存在し、パスワードが正しいか確認
         if user and user.check_password(password):
@@ -28,23 +32,13 @@ def index(): #templates/index.htmlを表示する
         else:
             flash("ユーザー名またはパスワードが違います")
 
-    return render_template("index.html")  # ログインフォームを表示
+    return render_template("index.html", form=form)  # ログインフォームを表示
 
 @main.route("/calendar")
 @login_required
 def calendar():
-    return render_template("calendar.html")
-
-#色を決める
-def get_shift_color(title):
-    if title == "日勤":
-        return "#F0F4C3"
-    elif title == "夜勤":
-        return "#81D4FA"
-    elif title == "当直":
-        return "#FFCDD2"
-    else:
-        return "#9E9E9E"  # グレー（予定など）
+    shift_types = ShiftType.query.all() #勤務タイプ一覧取得
+    return render_template("calendar.html",shift_types=shift_types)
 
 # "/" にアクセスされたときの処理（トップページ）
 # ルーティングはURLとFlaskの処理を対応づけることで、URLと関数を紐付ける
@@ -188,3 +182,18 @@ def get_holidays():
     except Exception as e:
         print("祝日取得エラー:", e)
         return jsonify([]), 500
+    
+@main.route("/add_shift_type", methods=["POST"])
+@login_required
+def add_shift_type():
+    name = request.form["name"]
+    color = request.form["color"]
+    text_color = "#FFFFFF"
+    # 重複チェック
+    if ShiftType.query.filter_by(name=name).first():
+        return "duplicate", 400
+
+    new_type = ShiftType(name=name, color=color, text_color=text_color)
+    db.session.add(new_type)
+    db.session.commit()
+    return jsonify({"name": name, "color": color, "text_color": text_color}), 200
