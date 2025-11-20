@@ -35,16 +35,16 @@
     color: black !important;
   }
 
-  /* 予定タイトル */
-  /* .fc-event-title {
-    color: black !important;
-  } */
-
   .fc-event.normal-event,.fc-event.normal-event .fc-event-title,
 .fc-event.normal-event .fc-event-time {
   background-color: #fff;
   border-color: black;
   color: #000;
+}
+
+.fc-event:not(.fc-bg-event):hover {
+  box-shadow: 0 0 5px rgba(0,0,0,0.3);
+  border: 1px solid #666;
 }
 
   /* 日曜の背景色 */
@@ -70,10 +70,10 @@
   color: #FFFFFF !important;
 }
 
- /* シフト共通：背景色と文字色は維持、枠線なし */
+ /* シフト共通：背景色と文字色 */
 .fc-event.shift-day,.fc-event.shift-day .fc-event-title,
 .fc-event.shift-day .fc-event-time {
-  background-color: #4db6a4;  /* 濃いグリーン */
+  background-color: #4db6a4;
   color: #FFFFFF !important;
   border-radius: 4px;
   font-weight: bold;
@@ -81,7 +81,7 @@
 
 .fc-event.shift-night,.fc-event.shift-night .fc-event-title,
 .fc-event.shift-night .fc-event-time {
-  background-color: #1E88E5;  /* 濃いブルー */
+  background-color: #1E88E5;
   color: #FFFFFF !important;
   border-radius: 4px;
   font-weight: bold;
@@ -89,7 +89,7 @@
 
 .fc-event.shift-duty,.fc-event.shift-duty .fc-event-title,
 .fc-event.shift-duty .fc-event-time {
-  background-color: #e57373;  /* 濃いレッド */
+  background-color: #e57373;
   color: #FFFFFF !important;
   border-radius: 4px;
   font-weight: bold;
@@ -143,19 +143,6 @@
   background-color: #e3f2fd;
   border-radius: 4px;
 }
-
-/* 追加した勤務ボタン */
-#customShiftButtons button {
-  margin: 0 8px;
-  padding: 10px 20px;
-  font-weight: bold;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  color: #FFFFFF !important;
-  background-color: #4DB6AC !important; /* デフォルト色、JSで上書きされる */
-}
-
 </style>
 
 </head>
@@ -199,15 +186,15 @@
           <!-- タイトルと時間入力（シフト登録モードで表示） -->
          <div class="mb-3">
            <label for="eventTitle" class="form-label">タイトル</label>
-           <input type="text" class="form-control" id="eventTitle" required>
+           <input type="text" class="form-control" id="eventTitle" name="eventTitle" required>
           </div>
           <div class="mb-3">
            <label for="eventStart" class="form-label">開始時間</label>
-           <input type="datetime-local" class="form-control" id="eventStart" required>
+           <input type="datetime-local" class="form-control" id="eventStart" name="eventStart" required>
          </div>
           <div class="mb-3">
            <label for="eventEnd" class="form-label">終了時間</label>
-            <input type="datetime-local" class="form-control" id="eventEnd" required>
+            <input type="datetime-local" class="form-control" id="eventEnd" name="eventEnd" required>
           </div>
           <div class="mb-3">
             <label for="eventNote" class="form-label">メモ</label>
@@ -217,31 +204,7 @@
             <label for="eventColor" class="form-label">表示色</label>
             <input type="color" class="form-control form-control-color" id="eventColor" value="#66bb6a">
           </div>
-
-          <!-- 勤務タイプ追加欄 -->
-          <div class="mb-3">
-            <label class="form-label">新しい勤務タイプを追加</label>
-            <div class="d-flex gap-2">
-              <input type="text" id="customShiftName" class="form-control" placeholder="勤務名">
-              <input type="color" id="customShiftColor" class="form-control form-control-color" value="#4DB6AC">
-              <button type="button" class="btn btn-outline-primary" id="addCustomShift">追加</button>
-            </div>
-          </div>
-
-          <!-- 追加された勤務タイプボタンを表示するエリア -->
-          <div id="customShiftButtons" class="mb-3 d-flex flex-wrap gap-2">
-            {% for shift in shift_types %}
-              <button type="button"
-                      class="btn"
-                      style="background-color: {{ shift.color }}; color: {{ shift.text_color }};"
-                      data-shift="{{ shift.name }}">
-                {{ shift.name }}
-              </button>
-            {% endfor %}
-          </div>
-        </form>
-      </div>
-
+          
       <!-- モーダルのフッター（ボタン） -->
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
@@ -254,8 +217,10 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  const calendarEl = document.getElementById("calendar");
+  let selectedCell = null;
+  let isShiftMode = false;
 
+  const calendarEl = document.getElementById("calendar");
   const calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: "dayGridMonth",
     locale: "ja",
@@ -265,136 +230,49 @@ document.addEventListener("DOMContentLoaded", function () {
       right: "dayGridMonth,timeGridWeek,timeGridDay"
     },
     eventSources: [
-    {url: "/api/events"},
-    {url: "/api/holidays"}
+      { url: "/api/events" },
+      { url: "/api/holidays" }
     ],
-    eventClassNames: function(arg) {
-    return arg.event.classNames;
-  },
-
-
-    dayCellClassNames: function(arg) {
+    eventClassNames: arg => arg.event.classNames,
+    dayCellClassNames: arg => {
       const day = arg.date.getDay();
-      if (day === 0) return ["sunday"];   // 日曜
-      if (day === 6) return ["saturday"]; // 土曜
-      return [];
+      return day === 0 ? ["sunday"] : day === 6 ? ["saturday"] : [];
     },
-
-    eventClick: function(info) {
+    eventClick: info => {
       const event = info.event;
       document.getElementById("eventId").value = event.id;
       document.getElementById("eventTitle").value = event.title;
       document.getElementById("eventStart").value = event.start.toISOString().slice(0, 16);
       document.getElementById("eventEnd").value = event.end ? event.end.toISOString().slice(0, 16) : "";
-      const modal = new bootstrap.Modal(document.getElementById("eventModal"));
-      modal.show();
+      document.getElementById("eventNote").value = event.extendedProps.note || "";
+      bootstrap.Modal.getOrCreateInstance(document.getElementById("eventModal")).show();
     },
-
-    dateClick: function(info) {
-      if (selectedCell) {
-        selectedCell.classList.remove("selected-date");
-      }
+    dateClick: info => {
+      if (selectedCell) selectedCell.classList.remove("selected-date");
       selectedCell = info.dayEl;
       selectedCell.classList.add("selected-date");
 
-
       const dateStr = info.dateStr;
       document.getElementById("eventTitle").value = "";
-      document.getElementById("eventStart").value = info.dateStr + "T09:00";
-      document.getElementById("eventEnd").value = info.dateStr + "T10:00";
+      document.getElementById("eventStart").value = dateStr + "T09:00";
+      document.getElementById("eventEnd").value = dateStr + "T10:00";
       document.getElementById("eventId").value = "";
-
-      // 日付表示用ラベルにセット
+      document.getElementById("eventNote").value = "";
       document.getElementById("selectedDateText").textContent = dateStr;
-
-      // 初期モードは予定登録
       document.getElementById("modeShift").click();
-
-      const modal = new bootstrap.Modal(document.getElementById("eventModal"));
-      modal.show();
+      bootstrap.Modal.getOrCreateInstance(document.getElementById("eventModal")).show();
     },
-
-    eventDidMount: function(info) {
+    eventDidMount: info => {
       const note = info.event.extendedProps.note || "";
       const start = info.event.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const end = info.event.end ? info.event.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
-      const tooltip = `${info.event.title}\n${start}〜${end}\n${note}`;
-      info.el.setAttribute("title", tooltip);
+      info.el.setAttribute("title", `${info.event.title}\n${start}〜${end}\n${note}`);
     }
   });
 
   calendar.render();
 
-  let selectedCell = null;
-
-  document.getElementById("addCustomShift").addEventListener("click", () => {
-    const name = document.getElementById("customShiftName").value.trim();
-    const color = document.getElementById("customShiftColor").value;
-
-    if (!name || !color) {
-      alert("勤務名と色を入力してください");
-      return;
-    }
-
-    fetch("/add_shift_type", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ name, color })
-    }).then(response => {
-      if (!response.ok) {
-        alert("追加に失敗しました");
-        return;
-      }
-       return response.json();
-      }).then(data => {
-      // 勤務タイプボタンを追加
-      const button = document.createElement("button");
-      button.textContent = data.name;
-      button.className = "btn";
-      button.style.setProperty("color", data.text_color, "important");
-      button.style.setProperty("background-color", data.color, "important");
-      button.setAttribute("data-shift", data.name);
-
-      // クリック時の登録処理
-      button.onclick = () => {
-        const dateStr = document.getElementById("eventStart").value.slice(0, 10);
-        const start = dateStr + "T09:00";
-        const end = dateStr + "T17:00";
-        const note = document.getElementById("eventNote").value;
-
-        fetch("/api/events", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: data.name,
-            start: start,
-            end: end,
-            allDay: false,
-            note: note,
-            color: data.color
-
-          })
-        }).then(() => {
-         calendar.refetchEvents();
-       });
-      };
-        // 表示エリアにボタン追加
-        document.getElementById("customShiftButtons").appendChild(button);
-
-        // 入力欄をクリア
-        document.getElementById("customShiftName").value = "";
-        document.getElementById("customShiftColor").value = "#4DB6AC";
-    });
-  });
-
-  function getShiftClass(shift) {
-    if (shift === "日勤") return "shift-day";
-    if (shift === "夜勤") return "shift-night";
-    if (shift === "当直") return "shift-duty";
-    return "normal-event";
-  }
-
-  // DOM要素の取得（モーダル切り替えロジックを追加）
+  // モード切り替え
   const modeScheduleBtn = document.getElementById("modeSchedule");
   const modeShiftBtn = document.getElementById("modeShift");
   const titleGroup = document.getElementById("eventTitle").parentElement;
@@ -403,10 +281,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const saveBtn = document.getElementById("saveEvent");
   const modalTitle = document.getElementById("eventModalLabel");
   const selectedDateLabel = document.getElementById("selectedDateLabel");
-  const selectedDateText = document.getElementById("selectedDateText");
   const shiftButtons = document.getElementById("shiftButtons");
-  const note = document.getElementById("eventNote").value;
-
   const colorGroup = document.getElementById("eventColor").closest(".mb-3");
 
   const scheduleInputs = document.createElement("div");
@@ -416,7 +291,6 @@ document.addEventListener("DOMContentLoaded", function () {
   scheduleInputs.appendChild(startGroup);
   scheduleInputs.appendChild(endGroup);
 
-  // モード切り替え
   modeScheduleBtn.addEventListener("click", () => {
     isShiftMode = false;
     modeScheduleBtn.classList.add("active");
@@ -425,8 +299,10 @@ document.addEventListener("DOMContentLoaded", function () {
     scheduleInputs.style.display = "block";
     saveBtn.style.display = "inline-block";
     selectedDateLabel.style.display = "none";
-    shiftButtons.style.display = "none"; // 非表示
-    colorGroup.style.display = "block"; // 表示
+    shiftButtons.style.display = "none";
+    colorGroup.style.display = "block";
+    document.getElementById("customShiftButtons").style.display = "none";
+    document.getElementById("eventTitle").required = true;
   });
 
   modeShiftBtn.addEventListener("click", () => {
@@ -437,83 +313,77 @@ document.addEventListener("DOMContentLoaded", function () {
     scheduleInputs.style.display = "none";
     saveBtn.style.display = "none";
     selectedDateLabel.style.display = "block";
-    shiftButtons.style.display = "flex"; // 表示
-    colorGroup.style.display = "none"; // 非表示
-
+    shiftButtons.style.display = "flex";
+    colorGroup.style.display = "none";
+    document.getElementById("customShiftButtons").style.display = "flex";
+    document.getElementById("eventTitle").required = false;
   });
 
+  // 勤務ボタン（shiftButtons）クリック処理
   document.querySelectorAll("#shiftButtons button").forEach(button => {
-  button.addEventListener("click", function () {
-    const shift = this.getAttribute("data-shift");
-    const startInput = document.getElementById("eventStart");
-    const endInput = document.getElementById("eventEnd");
-    const dateStr = startInput.value.slice(0, 10); // "YYYY-MM-DD"
+    button.addEventListener("click", function () {
+      const shift = this.getAttribute("data-shift");
+      const startInput = document.getElementById("eventStart");
+      const endInput = document.getElementById("eventEnd");
+      const dateStr = startInput.value.slice(0, 10);
 
-    let start = "", end = "";
-    if (shift === "日勤") {
-      start = dateStr + "T08:00";
-      end = dateStr + "T17:00";
-    } else if (shift === "夜勤") {
-      start = dateStr + "T16:00";
-      end = dateStr + "T23:59";
-    } else if (shift === "当直") {
-      start = dateStr + "T22:00";
-      end = dateStr + "T23:59";
-    }
-
-    // 即保存処理
-    fetch("/api/events", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: shift,
-        start: start,
-        end: end,
-        allDay: false,
-      })
-    }).then(response => {
-      if (!response.ok) {
-        alert("保存に失敗しました");
-        return;
+      let start = "", end = "";
+      if (shift === "日勤") {
+        start = dateStr + "T08:00";
+        end = dateStr + "T17:00";
+      } else if (shift === "夜勤") {
+        start = dateStr + "T16:00";
+        end = dateStr + "T23:59";
+      } else if (shift === "当直") {
+        start = dateStr + "T22:00";
+        end = dateStr + "T23:59";
       }
 
-      calendar.refetchEvents();
+      fetch("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: shift, start, end, allDay: false })
+      }).then(response => {
+        if (!response.ok) {
+          alert("保存に失敗しました");
+          return;
+        }
 
-      // 次の日に切り替え
-      const nextDate = new Date(dateStr);
-      nextDate.setDate(nextDate.getDate() + 1);
-      const nextDateStr = nextDate.toISOString().slice(0, 10);
+        calendar.refetchEvents();
 
-      startInput.value = nextDateStr + "T09:00";
-      endInput.value = nextDateStr + "T10:00";
-      document.getElementById("eventTitle").value = "";
-      document.getElementById("eventId").value = "";
-      document.getElementById("selectedDateText").textContent = nextDateStr;
-      document.getElementById("eventNote").value = event.extendedProps.note || "";
+        const nextDate = new Date(dateStr);
+        nextDate.setDate(nextDate.getDate() + 1);
+        const nextDateStr = nextDate.toISOString().slice(0, 10);
+
+        startInput.value = nextDateStr + "T09:00";
+        endInput.value = nextDateStr + "T10:00";
+        document.getElementById("eventTitle").value = "";
+        document.getElementById("eventId").value = "";
+        document.getElementById("selectedDateText").textContent = nextDateStr;
+        document.getElementById("eventNote").value = "";
+      });
     });
   });
 
-  // モード切り替え用フラグ
-  let isShiftMode = false;
-
+  // 保存処理
   document.getElementById("saveEvent").addEventListener("click", function () {
     const id = document.getElementById("eventId").value;
     const title = document.getElementById("eventTitle").value;
     const start = document.getElementById("eventStart").value;
     const end = document.getElementById("eventEnd").value;
     const color = isShiftMode ? null : document.getElementById("eventColor").value;
+    const note = document.getElementById("eventNote").value;
 
     console.log("保存クリック:", { id, title, start, end });
 
     if (title && start && end) {
       const url = id ? "/api/update_event" : "/api/add_event";
-
-      const allDay = isShiftMode; // シフトモードなら true、予定モードなら false
+      const allDay = isShiftMode;
 
       fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, title, start, end, allDay,note,color })
+        body: JSON.stringify({ id, title, start, end, allDay, note, color })
       })
       .then(response => response.json())
       .then(data => {
@@ -531,10 +401,10 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById("eventEnd").value = nextDateStr + "T17:00";
           } else if (title === "夜勤") {
             document.getElementById("eventStart").value = nextDateStr + "T17:00";
-            document.getElementById("eventEnd").value = nextDateStr + "T23:59"; 
+            document.getElementById("eventEnd").value = nextDateStr + "T23:59";
           } else if (title === "当直") {
-              document.getElementById("eventStart").value = nextDateStr + "T22:00";
-              document.getElementById("eventEnd").value = nextDateStr + "T23:59"; 
+            document.getElementById("eventStart").value = nextDateStr + "T22:00";
+            document.getElementById("eventEnd").value = nextDateStr + "T23:59";
           }
 
           document.getElementById("eventId").value = "";
@@ -542,11 +412,9 @@ document.addEventListener("DOMContentLoaded", function () {
           const modal = bootstrap.Modal.getInstance(document.getElementById("eventModal"));
           modal.hide();
         }
-
-      })
-  }
-});
-
+      });
+    }
+  });
 
     document.getElementById("deleteEvent").addEventListener("click", function () {
       const id = document.getElementById("eventId").value;
@@ -573,7 +441,6 @@ document.addEventListener("DOMContentLoaded", function () {
       } else {
         alert("削除対象のIDがありません。");
       }
-    });
   });
 });
 </script>

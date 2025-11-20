@@ -182,18 +182,3 @@ def get_holidays():
     except Exception as e:
         print("祝日取得エラー:", e)
         return jsonify([]), 500
-    
-@main.route("/add_shift_type", methods=["POST"])
-@login_required
-def add_shift_type():
-    name = request.form["name"]
-    color = request.form["color"]
-    text_color = "#FFFFFF"
-    # 重複チェック
-    if ShiftType.query.filter_by(name=name).first():
-        return "duplicate", 400
-
-    new_type = ShiftType(name=name, color=color, text_color=text_color)
-    db.session.add(new_type)
-    db.session.commit()
-    return jsonify({"name": name, "color": color, "text_color": text_color}), 200
