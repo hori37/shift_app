@@ -1,22 +1,22 @@
-# 🌐 Webアプリケーション開発ポートフォリオ（Java / JSP / Servlet）
+# 🕒 shift_app（シフトと予定管理Webアプリ）
 
 ## 📘 概要
-Java / JSP / Servlet / SQL を用いて開発した Web アプリケーションです。  
-ユーザー管理・データ登録・検索などの CRUD 処理を実装し、MVC 設計と DB 連携を学習目的で作成しました。
-
+【シフト】【予定】を重ねて管理し一目で確認できるシンプルなスケジュールアプリです。
+日勤・夜勤・当直などの勤務をカレンダー上で直感的に登録し、プライベートの予定も重ねて管理できる。祝日表示や色分けで視認性を高めています。 
+Webフレームワークの基礎学習のため作成しました。
 ---
 
 ## 🛠 開発環境
 | 項目 | 内容 |
 |------|------|
-| 言語 | Java（JDK 17 など） |
-| フレームワーク | Servlet / JSP（Jakarta EE） |
-| データベース | MySQL 8.0 |
-| ビルドツール | Apache Maven または Eclipse Dynamic Web Project |
-| アプリケーションサーバー | Apache Tomcat 10.x |
-| IDE | Eclipse / IntelliJ IDEA / VS Code |
+| 言語 | Python（Flask） / JavaScript |
+| フロントエンド | FullCalendar / Bootstrap |
+| バックエンド | Flask / SQLAlchemy |
+| データベース | SQLite（開発用） / MySQL（本番想定） |
+| 認証 | Flask-Login |
+| IDE | VS Code |
 | バージョン管理 | Git / GitHub |
-| OS | macOS / Windows |
+| OS | Windows 11 |
 
 ---
 
@@ -25,33 +25,25 @@ Java / JSP / Servlet / SQL を用いて開発した Web アプリケーション
 |------------|------|
 | ユーザー管理 | 新規登録・ログイン・ログアウト・パスワード変更 |
 | データ登録 | フォーム入力によるデータ追加・バリデーション処理 |
-| データ検索 | キーワード検索・絞り込み検索・一覧表示 |
 | 更新／削除 | 登録データの編集・削除機能 |
 | セッション管理 | ログインユーザー情報の保持とアクセス制御 |
 | エラーハンドリング | 例外処理／404ページ／入力エラーメッセージ表示 |
 
 ---
 
-## 📂 ディレクトリ構成（例）
-```
-project/
-├── src/
-│   ├── main/
-│   │   ├── java/
-│   │   │   ├── servlet/
-│   │   │   │   ├── LoginServlet.java
-│   │   │   │   ├── RegisterServlet.java
-│   │   │   │   └── ListServlet.java
-│   │   │   └── dao/
-│   │   │       └── UserDAO.java
-│   │   ├── webapp/
-│   │   │   ├── WEB-INF/web.xml
-│   │   │   ├── jsp/login.jsp
-│   │   │   ├── jsp/register.jsp
-│   │   │   └── css/style.css
-│   └── test/
+## 📂 ディレクトリ構成
+shift_app/
+├── app.py
+├── models.py
+├── routes.py
+├── templates/
+│   ├── index.html
+│   ├── calendar.html
+│   └── add_schedule.html
+├── static/
+│   ├── css/
+│   └── js/
 └── README.md
-```
 
 ---
 
@@ -73,12 +65,18 @@ project/
 ---
 
 ## 🧠 設計方針・工夫点
-- MVC設計：Servlet（Controller）、DAO（Model）、JSP（View）を分離
-- SQLインジェクション対策として **PreparedStatement** を使用
-- パスワードは **ハッシュ化（SHA-256 / bcrypt）** して保存
-- JSP include によるヘッダー・フッターの共通化
-- ER図・シーケンス図を用いて処理を明確化
-
+- MVC構成（Flask Blueprint + SQLAlchemy + Jinja2）で保守性と拡張性を確保
+- シフト登録モードでは保存後に翌日に自動切替 → 連続入力を効率化
+- FullCalendarを用いた直感的なUIで予定とシフトを一目で把握
+- 祝日API連携で自動背景色表示 →視認性向上
+- ユーザー追加による勤務タイプ拡張機能は削除 → 安定性重視
+- .gitignore や requirements.txt を整備し、プロジェクトの再現性を確保
+- 画面遷移を最小化しモーダルフォームで予定・シフトを登録、編集、削除操作可能 → ユーザー体験が向上
+- - UI設計の工夫
+- 予定入力はタイトル・時間・色を指定
+- シフト登録は連続入力＆ワンクリックで勤務区分選択できるスマートなUI
+- モーダルフォームを活用し、予定とシフトで使い分けができる
+  
 ---
 
 ## 📊 UML / 設計資料
@@ -103,11 +101,11 @@ project/
 ---
 
 ## 🧭 今後の拡張予定
-- Bootstrap / Vue.js の導入でUI改善  
-- REST API 化（JSON対応）  
-- Docker による環境構築自動化  
-- ログイン履歴・アクセスログの分析機能追加  
-- JUnit / Mockito による単体テストの充実  
+- 管理者専用の勤務タイプ編集画面
+- Dockerによる環境構築自動化
+- シフト集計機能（勤務時間の合計・勤務回数）
+- モバイル対応UI（レスポンシブデザイン強化）
+- テストコード整備（pytest）
 
 ---
 
