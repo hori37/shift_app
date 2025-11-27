@@ -73,7 +73,9 @@
 <body>
   <div class="login-container">
     <h1 class="app-title">ShiftApp</h1>
+    <!-- POSTメソッドでFlaskにデータを渡す -->
     <form method="POST" action="{{ url_for('main.index') }}">
+  <!-- {{form.〇〇}}で記述 -->
   {{ form.hidden_tag() }}
   <div class="form-group">
     {{ form.username.label }}<br>

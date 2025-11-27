@@ -1,11 +1,10 @@
-# アプリ起動ファイル
-# appフォルダの中にある create_app 関数を読み込む
+# ➀アプリ起動用ファイル
 from app import create_app
 
-# Flaskアプリを作成（設定やルーティングを含む）
+# __init__.pyのcreate_app()を呼びアプリを構築
 app = create_app()
 
-# このファイルが直接実行されたときだけ、アプリを起動する
+# このファイルが直接実行されたときだけ、アプリを起動する（python run.pyで直接実行の場合）
 if __name__ == "__main__":
-    # Flaskアプリを起動（debug=True でエラー表示がわかりやすくなる）
-    app.run(debug=True,port=5050)
+    # Flaskアプリを起動（debug=Trueでエラー表示がわかりやすくするため開発中のみ。本番はFalseにする）
+    app.run(debug=True,port=5000)
